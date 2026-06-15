@@ -1,12 +1,36 @@
 {
-  "team": "TODO-team-name",
+  "team": "LuongQuocDoan",
   "schema_version": 1,
   "findings": [
     {
-      "fault_class": "latency_spike",
-      "evidence": {"metric": "latency_p95_ms", "observed": "TODO from your telemetry", "trace_ids": []},
-      "root_cause": "TODO: what config knob or behavior causes it?",
-      "suggested_fix": "TODO: config change and/or wrapper mitigation"
+      "fault_class": "tool_failure",
+      "evidence": {"metric": "trace observation error", "observed": "practice run showed upstream_unavailable in check_stock/get_discount/calc_shipping and diacritic destinations failing", "trace_ids": ["prac-001", "prac-005", "prac-013"]},
+      "root_cause": "tool_error_rate was high and normalize_unicode was disabled, so valid products or destinations could be treated as unavailable.",
+      "suggested_fix": "Enable retry, set tool_error_rate to 0 for the submitted config, normalize unicode, and retry once in wrapper when a tool returns upstream_unavailable."
+    },
+    {
+      "fault_class": "tool_overuse",
+      "evidence": {"metric": "repeated identical tool calls", "observed": "check_stock was called five times for the same item in one request", "trace_ids": ["prac-003", "prac-019"]},
+      "root_cause": "The default prompt and disabled loop guard encouraged repeated tool calls instead of using the first verified observation.",
+      "suggested_fix": "Rewrite the prompt to allow each tool at most once, enable loop_guard, cap tool_budget, and have the wrapper compute from the first verified trace."
+    },
+    {
+      "fault_class": "pii_leak",
+      "evidence": {"metric": "PII in answer", "observed": "answers repeated customer email and phone numbers", "trace_ids": ["prac-002", "prac-008", "prac-014", "prac-015"]},
+      "root_cause": "The prompt did not forbid echoing customer contact data and redaction was disabled.",
+      "suggested_fix": "Enable redact_pii, strip PII before calling the agent, and redact the final answer in wrapper."
+    },
+    {
+      "fault_class": "arithmetic_error",
+      "evidence": {"metric": "answer contradicts verified trace", "observed": "some answers said a verified in-stock product was not found after a later failed repeated tool call", "trace_ids": ["prac-002", "prac-003"]},
+      "root_cause": "High temperature and weak prompt let the model ignore earlier verified tool observations and overreact to later failures.",
+      "suggested_fix": "Lower temperature, verify arithmetic, and recompute subtotal, discount, shipping, and total from the tool trace in wrapper."
+    },
+    {
+      "fault_class": "prompt_injection",
+      "evidence": {"metric": "private risk from order notes", "observed": "README/RULES state private orders include fake system prices or instructions in notes", "trace_ids": []},
+      "root_cause": "The original prompt did not treat order notes as untrusted data.",
+      "suggested_fix": "System prompt explicitly ignores note instructions and wrapper removes note-like injected suffixes before routing to the agent."
     }
   ]
 }
